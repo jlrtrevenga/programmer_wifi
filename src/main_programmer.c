@@ -24,11 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-
-//#include "lwip/err.h"
-//#include "lwip/apps/sntp.h"
-
 #include "wifi01.h"
+#include "task_programmer01.h"
 
 static const char *TAG = "WIFI_EXAMPLE";
 
@@ -38,6 +35,7 @@ void app_main()
     esp_log_level_set("WIFI01", 1);
     esp_log_level_set("wifi", 1);
     esp_log_level_set("event", 1);
+    esp_log_level_set("TASK_PROGRAMMER01", 3);
 
     time_t now;
     struct tm timeinfo;
@@ -68,6 +66,12 @@ void app_main()
         change_stat = !change_stat;
         wifi_activation_count++;
         ESP_LOGI(TAG, "wifi_activation_count: %d, wifi_change_stat %d",wifi_activation_count, change_stat);
+
+        // Init task programmer structures and activate weekly pattern = 2
+        int error = 0;
+        int active_pattern = 2;        
+        error = tp_init_structures();
+        error = tp_activate_pattern(active_pattern);
 
         ESP_LOGI(TAG, "Counter -------- %d", counter++);
         time(&time01);
