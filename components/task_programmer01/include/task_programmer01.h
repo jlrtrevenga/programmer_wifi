@@ -45,11 +45,18 @@ struct pattern_pgm{
   int target_var_value;
 };
 
+// Aux struct to keep track of relative position
+struct pattern_pgm_aux{
+  int prev_idx;
+  int next_idx;
+  int last_idx;
+};
 
-int tp_init_structures();
+
+void tp_init_structures();
 int tp_activate_pattern(int weekly_pattern);
-int activate_pattern(int pattern_weekly, struct pattern_pgm *active_pattern[50]);    // loads selected pattern to active pattern table
-int get_target_value(time_t actual_time, int weekly_pgm_id, int override_temp_value, int target_value);
+int tp_get_target_value(time_t actual_time, int *override_temp, int *target_value);
+
 
 // TODO: add functions to add, update and delete new records:
 //       Predefined records cannot be deleted, only some values can be modified.

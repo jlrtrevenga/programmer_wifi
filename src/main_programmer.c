@@ -70,7 +70,7 @@ void app_main()
         // Init task programmer structures and activate weekly pattern = 2
         int error = 0;
         int active_pattern = 2;        
-        error = tp_init_structures();
+        tp_init_structures();
         error = tp_activate_pattern(active_pattern);
 
         ESP_LOGI(TAG, "Counter -------- %d", counter++);
