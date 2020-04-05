@@ -50,7 +50,7 @@ void app_main()
     // TODO: Choose from screen/parameters
     // Set timezone to SPAIN Standard Time
     // TODO: Although it should be UTC+1, it seems we have to use UTC-1 (1 hour west from Grenwich, to make it work fine)
-    setenv("TZ", "UTC-1,M3.5.0/2,M10.4.0/2", 1);
+    setenv("TZ", "UTC-2,M3.5.0/2,M10.4.0/2", 1);
     tzset();
 
    int wifi_activation_count = 0;
@@ -73,6 +73,30 @@ void app_main()
         tp_init_structures();
         error = tp_activate_pattern(active_pattern);
 
+        int *temperature = NULL;
+        for (;;){
+            time(&now);
+            localtime_r(&now, &timeinfo);            
+            error = tp_get_target_value(now, NULL, temperature);
+
+            // Paso por minuto cero y segundo cero
+            
+            if (timeinfo.tm_min == 1){
+                ESP_LOGI(TAG, "TIME: WeekDay: %d, Time: %d:%d:%d ------------", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);                    
+                }
+            
+
+            //ESP_LOGI(TAG, "Time: WeekDay: %d, Time: %d:%d:%d ------------", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);                    
+
+            // Cambio de transicion
+            if (error == 2){
+                ESP_LOGI(TAG, "TIME TRANSITION: WeekDay: %d, Time: %d:%d:%d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);    
+                }
+            vTaskDelay(60000 / portTICK_PERIOD_MS);           
+        }
+
+
+        /*
         ESP_LOGI(TAG, "Counter -------- %d", counter++);
         time(&time01);
         for (int i=0; i<6; i++){
@@ -89,6 +113,7 @@ void app_main()
             ESP_LOGI(TAG, "diferencia de  tiempo interno + (debe ser 10s): %ld", time02 -now);
             ESP_LOGI(TAG, "diferencia de  tiempo interno - (debe ser 10s): %ld", now - time02);
         }
+        */
     }
 }
 

@@ -217,7 +217,7 @@ int tp_activate_pattern(int weekly_pattern){
  * @param[in] actual_time 
  * @param[in] weekly_program_id: active program in use,Index to pw_predef (pattern_weekly.PW_ID).
  * @param[in] override_value: manually changed value, replaces target value until next transition.
- * @param[out] target_value: target value found. 
+ * @param[out] target_value: target value found. 0-No_change / 1-Change / 2-Error
 *******************************************************************************/
 int tp_get_target_value(time_t actual_time, int *override_temp, int *target_value){
 
@@ -252,10 +252,11 @@ int tp_get_target_value(time_t actual_time, int *override_temp, int *target_valu
 
         *override_temp = (int) NULL;              // Reset override_temp and return new temperature setpoint
         *target_value = active_pgm[ppa.prev_idx].target_var_value;
+        error = 1;
         } 
     else if (p1 == 1 || p2 == 3){           //ERROR, reevaluate prev/next idx
         tp_relocate_indexes(now_temp);
-        error = 1;
+        error = 2;
         }
 
     return(error);
