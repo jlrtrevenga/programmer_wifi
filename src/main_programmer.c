@@ -35,7 +35,7 @@ void app_main()
     esp_log_level_set("WIFI01", 1);
     esp_log_level_set("wifi", 1);
     esp_log_level_set("event", 1);
-    esp_log_level_set("TASK_PROGRAMMER01", 3);
+    esp_log_level_set("TASK_PROGRAMMER01", 1);
 
     time_t now;
     struct tm timeinfo;
@@ -73,28 +73,50 @@ void app_main()
         tp_init_structures();
         error = tp_activate_pattern(active_pattern);
 
-        int *temperature = NULL;
+        int msg_level = 2;      // 1:cada hora / 2:cada minuto // 3: NO message
+        int temperature = 0;
+        int override_temperature = NULL;        //JLR TODO
+        int *ptemperature = &temperature;
+        int *poverride_temperature = &override_temperature; 
         for (;;){
             time(&now);
-            localtime_r(&now, &timeinfo);            
-            error = tp_get_target_value(now, NULL, temperature);
+            localtime_r(&now, &timeinfo);          
+            error = tp_get_target_value(now, poverride_temperature, ptemperature);
+            switch (error){
+                case 0:
+                    if (msg_level == 1) {
+                        if (timeinfo.tm_min == 0){
+                            ESP_LOGI(TAG, "TIME, Day: %d, %d:%d:%d -> Keep temperature %d ºC: ", 
+                                    timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, temperature);                    
+                            } 
+                        } 
+                    else if (msg_level == 2) {
+                            ESP_LOGI(TAG, "TIME, Day: %d, %d:%d:%d -> Keep temperature %d ºC: ", 
+                                    timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, temperature);    
+                            }
+                    break;
 
-            // Paso por minuto cero y segundo cero
-            
-            if (timeinfo.tm_min == 1){
-                ESP_LOGI(TAG, "TIME: WeekDay: %d, Time: %d:%d:%d ------------", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);                    
-                }
-            
+                case 1:
+                    // Cambio de transicion
+                        ESP_LOGI(TAG, "TIME, Day: %d, %d:%d:%d -> New temperature Setpoint %d ºC: ", 
+                                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, temperature);                         
+                    break;
 
-            //ESP_LOGI(TAG, "Time: WeekDay: %d, Time: %d:%d:%d ------------", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);                    
+                default: 
+                    if (msg_level == 1) {
+                        if (timeinfo.tm_min == 0){
+                        ESP_LOGE(TAG, "TIME, Day: %d, Time: %d:%d:%d -> ERROR(%d) ----------------", 
+                                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, error);                      
+                            } 
+                        } 
+                    else if (msg_level == 2) {
+                        ESP_LOGE(TAG, "TIME, Day: %d, Time: %d:%d:%d -> ERROR(%d) ----------------", 
+                                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, error);                      
+                         }
 
-            // Cambio de transicion
-            if (error == 2){
-                ESP_LOGI(TAG, "TIME TRANSITION: WeekDay: %d, Time: %d:%d:%d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);    
-                }
+            }
             vTaskDelay(60000 / portTICK_PERIOD_MS);           
         }
-
 
         /*
         ESP_LOGI(TAG, "Counter -------- %d", counter++);

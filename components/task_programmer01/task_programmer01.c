@@ -1,8 +1,7 @@
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "task_programmer01.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include <freertos/task.h>
-
 
 // PREDEFINED target_value, daily pattern and weekly patterns
 
@@ -23,12 +22,13 @@ static struct pattern_daily pd_predef[PD_PREDEF_ELEMENTS] = {
   {3,1,0,0,4},    // Temperatura Continua, Confort
   {4,1,0,0,3},    // Oficina, Confort L-V
   {4,2,6,45,4},   // Oficina, Confort L-V
-  {4,3,18,0,3},   // Oficina, Confort L-V
-  {5,1,0,0,3},    // Casa, Horario trabajador L-V
-  {5,2,5,0,4},    // Casa, Horario trabajador L-V
-  {5,3,7,30,3},   // Casa, Horario trabajador L-V
-  {5,4,17,0,4},   // Casa, Horario trabajador L-V
-  {5,5,22,0,3},   // Casa, Horario trabajador L-V
+  {4,3,19,0,3},   // Oficina, Confort L-V
+  {5,1,18,00,3},    // Casa, Horario trabajador L-V
+  {5,2,18,07,4},    // Casa, Horario trabajador L-V
+  {5,3,18,15,3},   // Casa, Horario trabajador L-V   {5,3,7,30,3},
+  {5,4,18,31,4},   // Casa, Horario trabajador L-V   REMOVE
+  {5,5,18,44,3},   // Casa, Horario trabajador L-V   REMOVE  
+  {5,6,18,59,4},   // Casa, Horario trabajador L-V
   {6,1,0,0,3},    // Casa, Ocupación permanente
   {6,2,8,0,4},    // Casa, Ocupación permanente
   {6,3,23,0,3},   // Casa, Ocupación permanente
@@ -36,6 +36,29 @@ static struct pattern_daily pd_predef[PD_PREDEF_ELEMENTS] = {
   {7,2,16,0,4},   // Casa finde, templar viernes tarde
   {7,3,23,0,2},   // Casa finde, templar viernes tarde
   };
+
+/*
+static struct pattern_daily pd_predef[PD_PREDEF_ELEMENTS] = {
+  {0,1,0,0,1},    // Temperatura Continua, Antihielo
+  {1,1,0,0,2},    // Temperatura Continua, Baja
+  {2,1,0,0,3},    // Temperatura Continua, Mantenimiento
+  {3,1,0,0,4},    // Temperatura Continua, Confort
+  {4,1,0,0,3},    // Oficina, Confort L-V
+  {4,2,6,45,4},   // Oficina, Confort L-V
+  {4,3,19,0,3},   // Oficina, Confort L-V
+  {5,1,0,0,3},    // Casa, Horario trabajador L-V
+  {5,2,6,0,4},    // Casa, Horario trabajador L-V
+  {5,3,7,30,3},   // Casa, Horario trabajador L-V 
+  {5,4,18,30,4},   // Casa, Horario trabajador L-V
+  {5,5,22,30,3},   // Casa, Horario trabajador L-V 
+  {6,1,0,0,3},    // Casa, Ocupación permanente
+  {6,2,8,0,4},    // Casa, Ocupación permanente
+  {6,3,23,0,3},   // Casa, Ocupación permanente
+  {7,1,0,0,2},    // Casa finde, templar viernes tarde
+  {7,2,16,0,4},   // Casa finde, templar viernes tarde
+  {7,3,23,0,2},   // Casa finde, templar viernes tarde
+  };
+  */
 
 #define PW_PREDEF_ELEMENTS 28
 static struct pattern_weekly pw_predef[PW_PREDEF_ELEMENTS] = {
@@ -171,7 +194,7 @@ int tp_activate_pattern(int weekly_pattern){
     ppa.next_idx = 1;
     ppa.last_idx = 0;
 
-        pw_record.PW_ID = weekly_pattern;       // esto debería ser variable, pero lo pongo como horario de currito
+        pw_record.PW_ID = weekly_pattern;       
         pw_record.day = 1;                      // El segundo indice empieza siempre en 1   
         do {
             //Foreach week look for day records ...
@@ -193,9 +216,10 @@ int tp_activate_pattern(int weekly_pattern){
                             active_pgm[p_index].hour = pd_record.hour;
                             active_pgm[p_index].minute = pd_record.minute;
                             active_pgm[p_index].target_var_value = tv_record.target_var_value;
+                            ESP_LOGI(TAG, "idx: %d - active pattern = {%d, %d, %d, %d}", 
+                                    p_index, pw_record.day, pd_record.hour, pd_record.minute, tv_record.target_var_value);
                             p_index++;
                             ppa.last_idx++;  // Number of records in pattern_pgm
-                            ESP_LOGI(TAG, "active pattern = {%d, %d, %d, %d}", pw_record.day, pd_record.hour, pd_record.minute, tv_record.target_var_value);
                         }
                         else if (program_records >= ACT_PGM_ELEMENTS){
                             ESP_LOGE(TAG, "ACTIVE_PATTERN has more than %d records.", ACT_PGM_ELEMENTS);
@@ -206,6 +230,20 @@ int tp_activate_pattern(int weekly_pattern){
             } else pattern_weekly_found = 0;
             pw_record.day++;
         } while (pattern_weekly_found);
+        ppa.last_idx--;  // Decrease the last update as it was the last record
+
+        //get actual day/time 
+
+        time_t now;
+        struct tm timeinfo;
+        time(&now);
+        localtime_r(&now, &timeinfo);
+
+        struct pattern_pgm now_temp;
+        now_temp.day = timeinfo.tm_wday;
+        now_temp.hour = timeinfo.tm_hour;
+        now_temp.minute = timeinfo.tm_min;
+        tp_relocate_indexes(now_temp);         // Reevaluate prev/next idx and exit
         return(0);
 }
 
@@ -213,17 +251,20 @@ int tp_activate_pattern(int weekly_pattern){
 /****************************************************************************** 
 * tp_get_target_value
 *******************************************************************************
- * @brief checks programme and gets target value. 
+ * @brief Check programme and detect time area transitions.
+ * @brief If No_change and override_temp set, send this value. Else, return target value.
  * @param[in] actual_time 
  * @param[in] weekly_program_id: active program in use,Index to pw_predef (pattern_weekly.PW_ID).
  * @param[in] override_value: manually changed value, replaces target value until next transition.
- * @param[out] target_value: target value found. 0-No_change / 1-Change / 2-Error
+ * @param[out] target_value: target value found. 0-No_change / 1-Transition / 2-Error / 3-Invalid time
 *******************************************************************************/
-int tp_get_target_value(time_t actual_time, int *override_temp, int *target_value){
+int tp_get_target_value(time_t actual_time, int *p_override_temp, int *p_target_value){
 
     int error = 0;
 
     //get actual day/time 
+    time_t now;
+    time(&now);
     struct tm timeinfo;
     localtime_r(&actual_time, &timeinfo);
     struct pattern_pgm now_temp;
@@ -231,33 +272,55 @@ int tp_get_target_value(time_t actual_time, int *override_temp, int *target_valu
     now_temp.hour = timeinfo.tm_hour;
     now_temp.minute = timeinfo.tm_min;
 
-    // If year < 2020 => RETURN (invalid time, probably SNTP has not yet synchronized time)
-    if (timeinfo.tm_year < 2020) { return(1); }
+    ESP_LOGI(TAG, "tp_get_target_value - INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
-    // Check relative position: 
+    // If year < 2020 => RETURN(3) (invalid time, probably SNTP has not yet synchronized time)
+    if (timeinfo.tm_year < (2020 - 1900)) { 
+        char strftime_buf[64];
+        strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+        ESP_LOGI(TAG, "The current date/time in Madrid (UTC-1,M3.5.0/2,M10.4.0/2) is: %s", strftime_buf);
+        ESP_LOGE(TAG, "Date: %d / %d / %d", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday );
+        ESP_LOGE(TAG, "tm_year: %d, tm_yday: %d, tm_wday: %d, tm_mday: %d", timeinfo.tm_year, timeinfo.tm_yday, timeinfo.tm_wday, timeinfo.tm_mday  );
+        ESP_LOGE(TAG, "tm_mon: %d, tm_hour: %d, tm_min: %d, tm_sec: %d", timeinfo.tm_mon, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);        
+        ESP_LOGE(TAG, "tm_tm_isdst: %d", timeinfo.tm_isdst);                
+        ESP_LOGE(TAG, "WeekDay: %d, Time: %d:%d:%d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        return(3); 
+        } 
+
+    // Check relative position: now temp vs. previous and next transition
     int p1, p2;
     p1 = tp_eval_pos(1, now_temp);      // now_temp vs. previous time transition
     p2 = tp_eval_pos(2, now_temp);      // now_temp vs. next time transition
 
+
+    ESP_LOGI(TAG, "tp_eval_pos - Day %d, %d:%d:%d.............p1: %d, p2: %d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, p1, p2);
+
     // evaluate transitions
-    if ((p1==2) || (p1==3 && p2==1)){          // Maintain position in time area
-        if (*override_temp != NULL) { *target_value = active_pgm[ppa.prev_idx].target_var_value; }
-        else (*target_value = *override_temp);
+    if ((p1==2) || (p1==3 && p2==1)){          // RETURN(0): Maintain position in time area
+        ESP_LOGI(TAG, "tp_get_target_value, ((p1==2) || (p1==3 && p2==1)) -> Keep Position 1"); //JLR TODO
+        //*p_target_value = active_pgm[ppa.prev_idx].target_var_value;
+        if (*p_override_temp != NULL) { *p_target_value = active_pgm[ppa.prev_idx].target_var_value; }
+        else (*p_target_value = *p_override_temp);
+        ESP_LOGI(TAG, "tp_get_target_value, ((p1==2) || (p1==3 && p2==1)) -> Keep Position 2");   
+        error = 0;
         }
-    else if (p2 == 2){                      // Transition to new time area
-        ppa.prev_idx++;                     // Update prev & next indexes
-        if (ppa.prev_idx < ppa.last_idx) { 
-            ppa.next_idx = ppa.prev_idx++ ; }
+    else if (p2 == 2){                         // RETURN(1): Transition to new time area, update prev & next indexes
+        ppa.prev_idx++;                     
+        if (ppa.prev_idx < ppa.last_idx) { ppa.next_idx++; }
         else { (ppa.next_idx = 0); }
 
-        *override_temp = (int) NULL;              // Reset override_temp and return new temperature setpoint
-        *target_value = active_pgm[ppa.prev_idx].target_var_value;
+        ESP_LOGI(TAG, "tp_get_target_value, (p2==2) -> Transition and update idx. ppa.prev_idx=%d, ppa.next_idx=%d", ppa.prev_idx, ppa.next_idx);
+
+        *p_override_temp = (int) NULL;           // Reset override_temp and return new temperature setpoint
+        *p_target_value = active_pgm[ppa.prev_idx].target_var_value;
         error = 1;
         } 
-    else if (p1 == 1 || p2 == 3){           //ERROR, reevaluate prev/next idx
-        tp_relocate_indexes(now_temp);
+    else if (p1 == 1 || p2 == 3){              // RETURN(2): ERROR
+        tp_relocate_indexes(now_temp);         // Reevaluate prev/next idx and exit
         error = 2;
         }
+
+    ESP_LOGI(TAG, "tp_get_target_value - OUTPUT: ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
     return(error);
 };
@@ -441,13 +504,15 @@ int tp_eval_pos(int type, struct pattern_pgm tp2){
     struct pattern_pgm tp1;
     if (tp2.day == 0) { (tp2.day = 7); }           // Sunday is recoded from 0 to 7 to simplify comparison
 
+    ESP_LOGI(TAG, "tp_eval_pos - INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
+
     //Restart index when max_index reached
     if (type == 1) {
         tp1 = active_pgm[ppa.prev_idx];
         }
     else if (type == 2) {
         if (ppa.prev_idx < ppa.last_idx) { 
-            ppa.next_idx = ppa.prev_idx++ ; 
+            //ppa.next_idx = ppa.prev_idx++ ; //CHECK
             tp1 = active_pgm[ppa.next_idx];
             }
         else {
@@ -456,6 +521,11 @@ int tp_eval_pos(int type, struct pattern_pgm tp2){
             tp1.day = 8;                            
             }
         }
+
+    ESP_LOGI(TAG, "tp_eval_pos - Check: %d ---tp1: %d-%d:%d", type, tp1.day, tp1.hour, tp1.minute);
+    ESP_LOGI(TAG, "tp_eval_pos - Check: %d ---tp2: %d-%d:%d", type, tp2.day, tp2.hour, tp2.minute);
+
+    ESP_LOGI(TAG, "tp_eval_pos - OUTPUT: ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);    
 
     // compare times and assign relative position
     if (tp2.day < tp1.day) { return(1); }
@@ -470,6 +540,8 @@ int tp_eval_pos(int type, struct pattern_pgm tp2){
             else { return(0);}
             }
         }
+
+     
 }
 
 /****************************************************************************** 
@@ -487,6 +559,9 @@ void tp_relocate_indexes(struct pattern_pgm now){
     int result = 0;    
     int idx = 0;
     int salir = 0;
+
+    ESP_LOGI(TAG, "tp_relocate_indexes-INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
+    ESP_LOGI(TAG, "tp_relocate_indexes-Relocating idx ---> Day %d, %d:%d", now.day, now.hour, now.minute);
     do {
         // Check day
         if (active_pgm[idx].day < now.day ) {           // day not reached, keep going
@@ -525,6 +600,9 @@ void tp_relocate_indexes(struct pattern_pgm now){
                 }
             }
         } while (salir == 0);
+    
+        ESP_LOGI(TAG, "tp_relocate_indexes-OUTPUT: ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
+
 }
 
 
