@@ -53,9 +53,37 @@ struct pattern_pgm_aux{
 };
 
 
+/****************************************************************************** 
+* tp_init_structures - initialize week/day time_pattern structures and temp. targets
+*******************************************************************************
+ * @brief Initializes customized global structures (tv_cust, pd_cust, pw_cust)
+ * @brief with predefined programmed structure values (tv_predef, pd_predef, pw_predef)
+*************************************************************************************/
 void tp_init_structures();
+
+
+/****************************************************************************** 
+* tp_activate_pattern - Creates active program based on customize structures and selected weekly pattern
+*******************************************************************************
+ * @brief look for weekly pattern in struct list. Supuesto: es una lista ordenada, corregir para caso general 
+ * @param[in]  weekly pattern -> first index value to pw_predef[PW_PREDEF_ELEMENTS]
+ * @brief Error: 0-ok, Not handled, TODO
+*************************************************************************************/
 int tp_activate_pattern(int weekly_pattern);
+
+
+/****************************************************************************** 
+* tp_get_target_value
+*******************************************************************************
+ * @brief Check programme and detect time area transitions.
+ * @brief If No_change and override_temp set, send this value. Else, return target value.
+ * @param[in] actual_time 
+ * @param[in] weekly_program_id: active program in use,Index to pw_predef (pattern_weekly.PW_ID).
+ * @param[in] override_value: manually changed value, replaces target value until next transition.
+ * @param[out] target_value: target value found. 0-No_change / 1-Transition / 2-Error / 3-Invalid time
+*******************************************************************************/
 int tp_get_target_value(time_t actual_time, bool *poverride_active, int *override_temp, int *target_value);
+
 
 
 // TODO: add functions to add, update and delete new records:

@@ -131,9 +131,11 @@ void tp_relocate_indexes(struct pattern_pgm now);
 static const char *TAG = "TASK_PROGRAMMER01";
 
 
-
-/************************************************************************************* 
+/****************************************************************************** 
 * tp_init_structures - initialize week/day time_pattern structures and temp. targets
+*******************************************************************************
+ * @brief Initializes customized global structures (tv_cust, pd_cust, pw_cust)
+ * @brief with predefined programmed structure values (tv_predef, pd_predef, pw_predef)
 *************************************************************************************/
 void tp_init_structures(){
 
@@ -179,12 +181,14 @@ void tp_init_structures(){
         }
 }
 
-/************************************************************************************* 
+
+/****************************************************************************** 
 * tp_activate_pattern - Creates active program based on customize structures and selected weekly pattern
+*******************************************************************************
+ * @brief look for weekly pattern in struct list. Supuesto: es una lista ordenada, corregir para caso general 
+ * @param[in]  weekly pattern -> first index value to pw_predef[PW_PREDEF_ELEMENTS]
+ * @brief Error: 0-ok, Not handled, TODO
 *************************************************************************************/
-// look for weekly pattern in struct list. Supuesto: es una lista ordenada, corregir para caso general 
-// @param[in]  weekly pattern
-// Error: 0-ok, TODO
 int tp_activate_pattern(int weekly_pattern){
 
     struct pattern_weekly pw_record;
@@ -613,10 +617,6 @@ void tp_relocate_indexes(struct pattern_pgm now){
         ESP_LOGI(TAG, "tp_relocate_indexes-OUTPUT: ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
 }
-
-
-
-
 
 
 
