@@ -3,8 +3,8 @@
 #include "wifi_key.h"
 
 // Not required anymore, converted into parameters
-#define WIFI_AUTORECONNECT      true                          /* flag to configure wifi autoreconnection */
-#define SNTP_SYNC_ACTIVE        true                          /* flag to activate/deactivate sntp sync*/
+//#define WIFI_AUTORECONNECT      true                          /* flag to configure wifi autoreconnection */
+//#define SNTP_SYNC_ACTIVE        true                          /* flag to activate/deactivate sntp sync*/
 
 //#define SNTP_UPDATE_DELAY    60000                          /* DELAY >= 15000 according to standard */ 
 //#define SNTP_UPDATE_DELAY  3600000                          /* SNTP time update: 1h.    */
@@ -12,8 +12,8 @@
 
 //TODO: Learn how to check if the loop is already initialized and improve code
 static bool wifi_event_loop_started = false;                // variable used to initialize the loop only the first time
-static bool wifi_auto_reconnect = WIFI_AUTORECONNECT;       // reconnect if connection is lost (deactivate when stopping process)
-static bool sntp_sync_active = SNTP_SYNC_ACTIVE;            // activate SNTP service update
+static bool wifi_auto_reconnect = true;                 // reconnect if connection is lost (deactivate when stopping process)
+static bool sntp_sync_active = true;                    // activate SNTP service update
 
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event);
 
@@ -116,7 +116,7 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 
     case SYSTEM_EVENT_STA_GOT_IP:
         ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_GOT_IP: " IPSTR, IP2STR(&event->event_info.got_ip.ip_info.ip));
-        if (SNTP_SYNC_ACTIVE){
+        if (sntp_sync_active){
             sntp_start();
             ESP_LOGI(TAG, "SNTP: Initialized");
         }

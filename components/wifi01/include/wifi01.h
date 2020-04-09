@@ -40,8 +40,29 @@ extern "C" {
 #endif
 
 //void obtain_time(void);
+/****************************************************************************** 
+* wifi activate
+*******************************************************************************
+ * @brief activates wifi in STA mode. 
+ * @param[in] auto_reconnect = true -> Autoreconnect if connection is lost 
+ * @param[in] sntp_sync = true -> connect to snmt servers and get time
+*******************************************************************************/
 void wifi_activate(bool auto_reconnect, bool sntp_sync);
+
+/****************************************************************************** 
+* wifi deactivate
+*******************************************************************************
+ * @brief deactivates wifi in STA mode. 
+ * @brief SNTP service is also stopped.
+*******************************************************************************/
 void wifi_deactivate(void);
+
+/****************************************************************************** 
+* wifi deactivate
+*******************************************************************************
+ * @brief deactivates wifi in STA mode. 
+ * @brief SNTP service is also stopped.
+*******************************************************************************/
 void sntp_start(void);
 
 #ifdef __cplusplus

@@ -14,7 +14,7 @@ static struct target_var tv_predef[TV_PREDEF_ELEMENTS] = {
   {5, 23}    // ºC, temp. alta
   };
 
-#define PD_PREDEF_ELEMENTS 18 
+#define PD_PREDEF_ELEMENTS 26 
 static struct pattern_daily pd_predef[PD_PREDEF_ELEMENTS] = {
   {0,1,0,0,1},    // Temperatura Continua, Antihielo
   {1,1,0,0,2},    // Temperatura Continua, Baja
@@ -23,12 +23,19 @@ static struct pattern_daily pd_predef[PD_PREDEF_ELEMENTS] = {
   {4,1,0,0,3},    // Oficina, Confort L-V
   {4,2,6,45,4},   // Oficina, Confort L-V
   {4,3,19,0,3},   // Oficina, Confort L-V
-  {5,1,18,00,3},    // Casa, Horario trabajador L-V
-  {5,2,18,07,4},    // Casa, Horario trabajador L-V
-  {5,3,18,15,3},   // Casa, Horario trabajador L-V   {5,3,7,30,3},
-  {5,4,18,31,4},   // Casa, Horario trabajador L-V   REMOVE
-  {5,5,18,44,3},   // Casa, Horario trabajador L-V   REMOVE  
-  {5,6,18,59,4},   // Casa, Horario trabajador L-V
+  {5,1,0,00,3},    // Casa, Horario trabajador L-V
+  {5,2,10,10,4},    // Casa, Horario trabajador L-V
+  {5,3,12,15,3},   // Casa, Horario trabajador L-V
+  {5,4,13,20,4},   // Casa, Horario trabajador L-V
+  {5,5,16,15,3},   // Casa, Horario trabajador L-V 
+  {5,6,16,00,4},   // Casa, Horario trabajador L-V
+  {5,7,18,00,3},    // Casa, Horario trabajador L-V
+  {5,8,18,35,4},    // Casa, Horario trabajador L-V
+  {5,9,18,44,3},   // Casa, Horario trabajador L-V
+  {5,10,20,05,4},   // Casa, Horario trabajador L-V
+  {5,11,20,20,3},   // Casa, Horario trabajador L-V 
+  {5,12,21,30,4},   // Casa, Horario trabajador L-V  
+  {5,13,22,15,3},   // Casa, Horario trabajador L-V    
   {6,1,0,0,3},    // Casa, Ocupación permanente
   {6,2,8,0,4},    // Casa, Ocupación permanente
   {6,3,23,0,3},   // Casa, Ocupación permanente
@@ -109,7 +116,7 @@ static struct pattern_weekly pw_cust[PW_CUST_ELEMENTS];           // initialized
 
 // ACTIVE PROGRAM structure
 
-#define ACT_PGM_ELEMENTS 50
+#define ACT_PGM_ELEMENTS 100
 static struct pattern_pgm    active_pgm[ACT_PGM_ELEMENTS];      // initialized based on previous structures 
 static struct pattern_pgm_aux ppa;
 
@@ -219,6 +226,7 @@ int tp_activate_pattern(int weekly_pattern){
                             ESP_LOGI(TAG, "idx: %d - active pattern = {%d, %d, %d, %d}", 
                                     p_index, pw_record.day, pd_record.hour, pd_record.minute, tv_record.target_var_value);
                             p_index++;
+                            program_records++;
                             ppa.last_idx++;  // Number of records in pattern_pgm
                         }
                         else if (program_records >= ACT_PGM_ELEMENTS){
@@ -258,21 +266,21 @@ int tp_activate_pattern(int weekly_pattern){
  * @param[in] override_value: manually changed value, replaces target value until next transition.
  * @param[out] target_value: target value found. 0-No_change / 1-Transition / 2-Error / 3-Invalid time
 *******************************************************************************/
-int tp_get_target_value(time_t actual_time, int *p_override_temp, int *p_target_value){
+int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_override_temp, int *p_target_value){
 
     int error = 0;
+
+    ESP_LOGI(TAG, "tp_get_target_value - INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
     //get actual day/time 
     time_t now;
     time(&now);
     struct tm timeinfo;
     localtime_r(&actual_time, &timeinfo);
-    struct pattern_pgm now_temp;
+        struct pattern_pgm now_temp;
     now_temp.day = timeinfo.tm_wday;
     now_temp.hour = timeinfo.tm_hour;
     now_temp.minute = timeinfo.tm_min;
-
-    ESP_LOGI(TAG, "tp_get_target_value - INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
     // If year < 2020 => RETURN(3) (invalid time, probably SNTP has not yet synchronized time)
     if (timeinfo.tm_year < (2020 - 1900)) { 
@@ -284,42 +292,43 @@ int tp_get_target_value(time_t actual_time, int *p_override_temp, int *p_target_
         ESP_LOGE(TAG, "tm_mon: %d, tm_hour: %d, tm_min: %d, tm_sec: %d", timeinfo.tm_mon, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);        
         ESP_LOGE(TAG, "tm_tm_isdst: %d", timeinfo.tm_isdst);                
         ESP_LOGE(TAG, "WeekDay: %d, Time: %d:%d:%d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-        return(3); 
+        error = 3; 
         } 
+    else {
+        // Check relative position: now temp vs. previous and next transition
+        int p1, p2;
+        p1 = tp_eval_pos(1, now_temp);      // now_temp vs. previous time transition
+        p2 = tp_eval_pos(2, now_temp);      // now_temp vs. next time transition
+        ESP_LOGI(TAG, "tp_eval_pos - Day %d, %d:%d:%d.............p1: %d, p2: %d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, p1, p2);
 
-    // Check relative position: now temp vs. previous and next transition
-    int p1, p2;
-    p1 = tp_eval_pos(1, now_temp);      // now_temp vs. previous time transition
-    p2 = tp_eval_pos(2, now_temp);      // now_temp vs. next time transition
+        // evaluate transitions
+        if ((p1==2) || (p1==3 && p2==1)){          // RETURN(0): Maintain position in time area
+            if (*poverride_active) { (*p_target_value = *p_override_temp);}
+            else { *p_target_value = active_pgm[ppa.prev_idx].target_var_value; }
+            error = 0;
+            ESP_LOGI(TAG, "tp_get_target_value, ((p1==2) || (p1==3 && p2==1)) -> Keep Position 2");   
+            }
+        else if (p2 == 2){                         // RETURN(1): Transition to new time area, update prev & next indexes
+            //ppa.prev_idx++;                     
+            //if (ppa.prev_idx < ppa.last_idx) { ppa.next_idx++; }
+            //else { (ppa.next_idx = 0); }
+            if (ppa.next_idx == ppa.last_idx) 
+                { ppa.prev_idx++; ppa.next_idx = 0;} 
+            else if (ppa.prev_idx == ppa.last_idx)
+                { ppa.prev_idx = 0; ppa.next_idx = 1;} 
+            else { ppa.prev_idx++; ppa.next_idx++; }
 
-
-    ESP_LOGI(TAG, "tp_eval_pos - Day %d, %d:%d:%d.............p1: %d, p2: %d", timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, p1, p2);
-
-    // evaluate transitions
-    if ((p1==2) || (p1==3 && p2==1)){          // RETURN(0): Maintain position in time area
-        ESP_LOGI(TAG, "tp_get_target_value, ((p1==2) || (p1==3 && p2==1)) -> Keep Position 1"); //JLR TODO
-        //*p_target_value = active_pgm[ppa.prev_idx].target_var_value;
-        if (*p_override_temp != NULL) { *p_target_value = active_pgm[ppa.prev_idx].target_var_value; }
-        else (*p_target_value = *p_override_temp);
-        ESP_LOGI(TAG, "tp_get_target_value, ((p1==2) || (p1==3 && p2==1)) -> Keep Position 2");   
-        error = 0;
-        }
-    else if (p2 == 2){                         // RETURN(1): Transition to new time area, update prev & next indexes
-        ppa.prev_idx++;                     
-        if (ppa.prev_idx < ppa.last_idx) { ppa.next_idx++; }
-        else { (ppa.next_idx = 0); }
-
-        ESP_LOGI(TAG, "tp_get_target_value, (p2==2) -> Transition and update idx. ppa.prev_idx=%d, ppa.next_idx=%d", ppa.prev_idx, ppa.next_idx);
-
-        *p_override_temp = (int) NULL;           // Reset override_temp and return new temperature setpoint
-        *p_target_value = active_pgm[ppa.prev_idx].target_var_value;
-        error = 1;
-        } 
-    else if (p1 == 1 || p2 == 3){              // RETURN(2): ERROR
-        tp_relocate_indexes(now_temp);         // Reevaluate prev/next idx and exit
-        error = 2;
-        }
-
+            *poverride_active = false;
+            *p_target_value = active_pgm[ppa.prev_idx].target_var_value;
+            error = 1;
+            ESP_LOGI(TAG, "tp_get_target_value, (p2==2) -> Transition and update idx. ppa.prev_idx=%d, ppa.next_idx=%d", ppa.prev_idx, ppa.next_idx);
+            } 
+        else if (p1 == 1 || p2 == 3){              // RETURN(2): ERROR
+            tp_relocate_indexes(now_temp);         // Reevaluate prev/next idx and exit
+            error = 2;
+            ESP_LOGE(TAG, "tp_get_target_value, (p1 == 1 || p2 == 3) -> ERROR, Relocate indexes: ppa.prev_idx=%d, ppa.next_idx=%d", ppa.prev_idx, ppa.next_idx);        
+            }
+    }
     ESP_LOGI(TAG, "tp_get_target_value - OUTPUT: ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
     return(error);

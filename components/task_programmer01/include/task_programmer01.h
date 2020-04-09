@@ -55,7 +55,7 @@ struct pattern_pgm_aux{
 
 void tp_init_structures();
 int tp_activate_pattern(int weekly_pattern);
-int tp_get_target_value(time_t actual_time, int *override_temp, int *target_value);
+int tp_get_target_value(time_t actual_time, bool *poverride_active, int *override_temp, int *target_value);
 
 
 // TODO: add functions to add, update and delete new records:
