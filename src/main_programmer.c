@@ -63,7 +63,7 @@ void app_main()
         int error = 0;
         int active_pattern = 2;        
         tp_init_structures();
-        error = tp_activate_pattern(active_pattern);
+        error = tp_activate_weekly_pattern(active_pattern);
 
         int msg_level = 1;      // 1:cada hora / 2:cada minuto // 3: NO message
         bool override_active = false;

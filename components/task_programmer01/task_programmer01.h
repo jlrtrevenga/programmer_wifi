@@ -63,13 +63,24 @@ void tp_init_structures();
 
 
 /****************************************************************************** 
-* tp_activate_pattern - Creates active program based on customize structures and selected weekly pattern
+ TODO: add functions to add, update and delete new records:
+       Note: Predefined records cannot be deleted, only some values can be modified.
+
+ int reset_default_patterns();                                    // resets default patterns
+ int add_target_temp(struct target_var target_temp);             // (exactly 1 record)
+ int add_pattern_daily(struct pattern_daily[6], int records);    // (group, Maximum 6 transitions x day)
+ int add_pattern_weekly(struct pattern_weekly[7]);               // (group. Exactly 7 records (days))
+******************************************************************************/
+
+
+/****************************************************************************** 
+* tp_activate_weekly_pattern - Creates active program based on customize structures and selected weekly pattern
 *******************************************************************************
  * @brief look for weekly pattern in struct list. Supuesto: es una lista ordenada, corregir para caso general 
  * @param[in]  weekly pattern -> first index value to pw_predef[PW_PREDEF_ELEMENTS]
  * @brief Error: 0-ok, Not handled, TODO
 *************************************************************************************/
-int tp_activate_pattern(int weekly_pattern);
+int tp_activate_weekly_pattern(int weekly_pattern);
 
 
 /****************************************************************************** 
@@ -84,15 +95,6 @@ int tp_activate_pattern(int weekly_pattern);
 *******************************************************************************/
 int tp_get_target_value(time_t actual_time, bool *poverride_active, int *override_temp, int *target_value);
 
-
-
-// TODO: add functions to add, update and delete new records:
-//       Predefined records cannot be deleted, only some values can be modified.
-
-// int reset_default_patterns();                                    // resets default patterns
-// int add_target_temp(struct target_var target_temp);             // (exactly 1 record)
-// int add_pattern_daily(struct pattern_daily[6], int records);    // (group, Maximum 6 transitions x day)
-// int add_pattern_weekly(struct pattern_weekly[7]);               // (group. Exactly 7 records (days))
 
 
 #ifdef __cplusplus

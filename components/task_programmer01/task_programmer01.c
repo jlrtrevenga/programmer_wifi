@@ -183,13 +183,13 @@ void tp_init_structures(){
 
 
 /****************************************************************************** 
-* tp_activate_pattern - Creates active program based on customize structures and selected weekly pattern
+* tp_activate_weekly_pattern - Creates active program based on customize structures and selected weekly pattern
 *******************************************************************************
  * @brief look for weekly pattern in struct list. Supuesto: es una lista ordenada, corregir para caso general 
  * @param[in]  weekly pattern -> first index value to pw_predef[PW_PREDEF_ELEMENTS]
  * @brief Error: 0-ok, Not handled, TODO
 *************************************************************************************/
-int tp_activate_pattern(int weekly_pattern){
+int tp_activate_weekly_pattern(int weekly_pattern){
 
     struct pattern_weekly pw_record;
     struct pattern_daily pd_record;
@@ -245,7 +245,7 @@ int tp_activate_pattern(int weekly_pattern){
         ppa.last_idx--;  // Decrease the last update as it was the last record
 
         //get actual day/time 
-
+        
         time_t now;
         struct tm timeinfo;
         time(&now);
@@ -255,6 +255,8 @@ int tp_activate_pattern(int weekly_pattern){
         now_temp.day = timeinfo.tm_wday;
         now_temp.hour = timeinfo.tm_hour;
         now_temp.minute = timeinfo.tm_min;
+        
+
         tp_relocate_indexes(now_temp);         // Reevaluate prev/next idx and exit
         return(0);
 }
@@ -265,10 +267,11 @@ int tp_activate_pattern(int weekly_pattern){
 *******************************************************************************
  * @brief Check programme and detect time area transitions.
  * @brief If No_change and override_temp set, send this value. Else, return target value.
- * @param[in] actual_time 
- * @param[in] weekly_program_id: active program in use,Index to pw_predef (pattern_weekly.PW_ID).
- * @param[in] override_value: manually changed value, replaces target value until next transition.
- * @param[out] target_value: target value found. 0-No_change / 1-Transition / 2-Error / 3-Invalid time
+ * @param[in] time_t actual_time 
+ * @param[in] bool *poverride_active: flag. Active if override temperature has been selected.
+ * @param[in] int  *p_override_temp: override temperature, replaces program temperature if override_active==1 till next trasition
+ * @param[in] int  *p_target_value: temperature recovered from program/override_temperature. 
+ * @param[return]  Values: 0:No_change / 1:Transition / 2:Error / 3:Invalid time
 *******************************************************************************/
 int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_override_temp, int *p_target_value){
 
@@ -277,11 +280,11 @@ int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_overr
     ESP_LOGI(TAG, "tp_get_target_value - INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
     //get actual day/time 
-    time_t now;
-    time(&now);
+    //time_t now;
+    //time(&now);
     struct tm timeinfo;
     localtime_r(&actual_time, &timeinfo);
-        struct pattern_pgm now_temp;
+    struct pattern_pgm now_temp;
     now_temp.day = timeinfo.tm_wday;
     now_temp.hour = timeinfo.tm_hour;
     now_temp.minute = timeinfo.tm_min;
@@ -290,7 +293,7 @@ int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_overr
     if (timeinfo.tm_year < (2020 - 1900)) { 
         char strftime_buf[64];
         strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-        ESP_LOGI(TAG, "The current date/time in Madrid (UTC-1,M3.5.0/2,M10.4.0/2) is: %s", strftime_buf);
+        ESP_LOGI(TAG, "TIME ERROR. Localtime:The current localtime date/time in Madrid (UTC-1,M3.5.0/2,M10.4.0/2) is: %s", strftime_buf);
         ESP_LOGE(TAG, "Date: %d / %d / %d", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday );
         ESP_LOGE(TAG, "tm_year: %d, tm_yday: %d, tm_wday: %d, tm_mday: %d", timeinfo.tm_year, timeinfo.tm_yday, timeinfo.tm_wday, timeinfo.tm_mday  );
         ESP_LOGE(TAG, "tm_mon: %d, tm_hour: %d, tm_min: %d, tm_sec: %d", timeinfo.tm_mon, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);        
